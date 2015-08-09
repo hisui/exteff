@@ -72,14 +72,13 @@ object Eff {
     , R0 <: HList : TypeTag
     , R1 <: HList : TypeTag
   ]
-  (r: Union[R0, V])(loop: V => Eff[R1, A], handle: F[V] => Eff[R1, A])
+  (loop: V => Eff[R1, A], handle: F[V] => Eff[R1, A])(r: Union[R0, V])
   (implicit ev: Remove[F, R0, R1]): Eff[R1, A] =
     r.decompose(implicitly[TypeTag1[F]].apply[V], ev) match {
       case Right(fa) => handle(fa)
       case  Left(r2) =>
         send(new New[V, R1] {
-          def apply[W: TypeTag, R <: HList : TypeTag]
-          (k: V => VE[W, R])(implicit ev: Subset[R1, R]): Union[R, VE[W, R]] = r2.fmap(k)
+          def apply[W: TypeTag, R <: HList : TypeTag](k: V => VE[W, R])(implicit ev: R1 `Subset` R): Union[R, VE[W, R]] = r2.fmap(k)
         }).flatMap(loop)
     }
 

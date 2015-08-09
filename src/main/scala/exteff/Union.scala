@@ -6,15 +6,14 @@ import scala.reflect.runtime.universe.{typeTag, TypeTag}
 
 trait Subset[X <: HList, Y <: HList]
 
-trait Case2 {
+trait Subset_0 {
   implicit def case2[X <: HList] = new Subset[X, X] {}
   implicit def case3[X <: HList, Y <: HList, Z <: HList]
   (implicit ev1: Subset[X, Y], ev2: Subset[Y, Z]) = new Subset[X, Z] {}
 }
 
-object Subset extends Case2 {
+object Subset extends Subset_0 {
   import HList._
-
   implicit def case0[Y <: HList] = new Subset[`[]`, Y] {}
   implicit def case1[
     H1, T1 <: HList,
@@ -41,6 +40,10 @@ trait Remove[F[_], X <: HList, Y <: HList] extends Union.Member[F, X]
 object Remove {
   implicit def case0[F[_], X <: HList, Y <: HList]
   (implicit ev1: HList.Remove[F[Unit], X, Y]) = new Remove[F, X, Y] {}
+
+  implicit def case1[F[_, _], X <: HList, Y <: HList, A]
+  (implicit ev1: HList.Remove[F[A, Unit], X, Y]) = new Remove[({ type z[a] = F[A, a] })#z, X, Y] {}
+
 }
 
 sealed trait Union[S <: HList, V] {

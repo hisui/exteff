@@ -5,48 +5,51 @@ import scala.reflect.runtime.universe.TypeTag
 import Union._
 import Eff.Eff1
 
-sealed trait IntState[A]
-private case class Get[A](k: Int  => A) extends IntState[A]
-private case class Set[A](k: Unit => A, n: Int)
-  extends IntState[A]
+sealed trait State[S, A]
+private case class Get[S, A](k: S => A) extends State[S, A]
+private case class Set[S, A](k: Unit => A, n: S)
+  extends State[S, A]
 
-object IntState {
+object State {
 
-  implicit def functor = new Functor[IntState] {
-    def fmap[A, B](f: A => B)(ma: IntState[A]): IntState[B] = ma match {
-      case Get(k   ) => Get[B](n => f(k(n)))
-      case Set(k, n) => Set[B](_ => f(k(())), n)
+  implicit def functor[S] = new Functor[({ type z[a] = State[S, a] })#z] {
+    def fmap[A, B](f: A => B)(ma: State[S, A]): State[S, B] = ma match {
+      case Get(k   ) => Get[S, B](n => f(k(n)))
+      case Set(k, n) => Set[S, B](_ => f(k(())), n)
     }
   }
 
-  def get: Eff1[IntState, Int] = Eff.send(new New[Int, IntState |: `[]`]
+  def get[S: TypeTag] = Eff.send(new New[S, ({ type z[a] = State[S, a] })#z |: `[]`]
   {
+    type StateF[a] = State[S, a]
     def apply[W: TypeTag, R2 <: HList : TypeTag]
-    (k: Int => VE[W, R2])(implicit ev: Subset[IntState |: `[]`, R2]): Union[R2, VE[W, R2]] =
-      Union(Get(k) : IntState[VE[W, R2]])
+    (k: S => VE[W, R2])(implicit ev: Subset[StateF |: `[]`, R2]): Union[R2, VE[W, R2]] =
+      Union(Get(k) : StateF[VE[W, R2]])
   })
 
-  def set(n: Int): Eff1[IntState, Unit] = Eff.send(new New[Unit, IntState |: `[]`]
+  def set[S: TypeTag](n: S) = Eff.send(new New[Unit, ({ type z[a] = State[S, a] })#z  |: `[]`]
   {
+    type StateF[a] = State[S, a]
     def apply[W: TypeTag, R2 <: HList : TypeTag]
-    (k: Unit => VE[W, R2])(implicit ev: Subset[IntState |: `[]`, R2]): Union[R2, VE[W, R2]] =
-      Union(Set(k, n) : IntState[VE[W, R2]])
+    (k: Unit => VE[W, R2])(implicit ev: Subset[StateF |: `[]`, R2]): Union[R2, VE[W, R2]] =
+      Union(Set(k, n) : StateF[VE[W, R2]])
   })
 
-  def run[A: TypeTag
-    , R <: HList : TypeTag
-    , S <: HList : TypeTag](ex: Eff[R, A], n: Int)
-  (implicit ev1: Remove[IntState, R, S]): Eff[S, A] =
+  def run[A: TypeTag, S: TypeTag
+    , R0 <: HList : TypeTag
+    , R1 <: HList : TypeTag](ex: Eff[R0, A], n: S)
+  (implicit ev1: Remove[({ type z[a] = State[S, a] })#z, R0, R1]): Eff[R1, A] =
   {
-    def loop(n: Int)(ev: VE[A, R]): Eff[S, A] = {
-      def handle(r: IntState[VE[A, R]]): Eff[S, A] = r match {
+    type StateF[a] = State[S, a]
+    def loop(n: S)(ev: VE[A, R0]): Eff[R1, A] = {
+      def handle(r: StateF[VE[A, R0]]): Eff[R1, A] = r match {
         case Get(k   ) => loop(n)(k( n))
         case Set(k, n) => loop(n)(k(()))
       }
       ev match {
         case x: Val[A, _] => Eff(x.value)
         case E(u) =>
-          Eff.handleRelay(u)(loop(n), handle)
+          Eff.handleRelay(loop(n), handle)(u)
       }
     }
     loop(n)(Eff.admin(ex))
