@@ -35,17 +35,6 @@ object Fusion {
   implicit def case3[X <: HList] = new Fusion[X, `[]`, X] {}
 }
 
-trait Remove[F[_], X <: HList, Y <: HList] extends Union.Member[F, X]
-
-object Remove {
-  implicit def case0[F[_], X <: HList, Y <: HList]
-  (implicit ev1: HList.Remove[F[Unit], X, Y]) = new Remove[F, X, Y] {}
-
-  implicit def case1[F[_, _], X <: HList, Y <: HList, A]
-  (implicit ev1: HList.Remove[F[A, Unit], X, Y]) = new Remove[({ type z[a] = F[A, a] })#z, X, Y] {}
-
-}
-
 sealed trait Union[S <: HList, V] {
 
   def as[A: TypeTag]: Option[A]
@@ -54,7 +43,7 @@ sealed trait Union[S <: HList, V] {
 
   // TODO remove asInstanceOf
   def decompose[F[_], A, S2 <: HList]
-  (implicit tag: TypeTag[F[A]], ev: Remove[F, S, S2]): Either[Union[S2, V], F[A]] =
+  (implicit tag: TypeTag[F[A]], ev: Union.Remove[F, S, S2]): Either[Union[S2, V], F[A]] =
     as[F[A]].map(Right(_)) getOrElse Left(asInstanceOf[Union[S2, V]])
 
   def widen[X <: HList](implicit ev: Subset[S, X]): Union[X, V]
@@ -65,6 +54,9 @@ object Union {
   type |:[F[_], T <: HList] = ::[F[Unit], T]
 
   type Member[F[_], R <: HList] = Subset[F|:`[]`, R]
+  type Remove[F[_]
+    , R0 <: HList
+    , R1 <: HList] = HList.Remove[F[Unit], R0, R1]
 
   def apply[F[_]: Functor, V: TypeTag](e: F[V])
   (implicit tag: TypeTag1[F]): Union[F|:`[]`, V] = wrap(e)
