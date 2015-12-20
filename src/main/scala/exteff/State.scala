@@ -21,18 +21,18 @@ object State {
 
   def get[S: TypeTag] = Eff.send(new New[S, ({ type z[a] = State[S, a] })#z |: `[]`]
   {
-    type StateF[a] = State[S, a]
+    type F[a] = State[S, a]
     def apply[W: TypeTag, R2 <: HList : TypeTag]
-    (k: S => VE[W, R2])(implicit ev: Subset[StateF |: `[]`, R2]): Union[R2, VE[W, R2]] =
-      Union(Get(k) : StateF[VE[W, R2]])
+    (k: S => VE[W, R2])(implicit ev: ⊆[F |: `[]`, R2]): Union[R2, VE[W, R2]] =
+      Union(Get(k) : F[VE[W, R2]])
   })
 
   def set[S: TypeTag](n: S) = Eff.send(new New[Unit, ({ type z[a] = State[S, a] })#z  |: `[]`]
   {
-    type StateF[a] = State[S, a]
+    type F[a] = State[S, a]
     def apply[W: TypeTag, R2 <: HList : TypeTag]
-    (k: Unit => VE[W, R2])(implicit ev: Subset[StateF |: `[]`, R2]): Union[R2, VE[W, R2]] =
-      Union(Set(k, n) : StateF[VE[W, R2]])
+    (k: Unit => VE[W, R2])(implicit ev: ⊆[F |: `[]`, R2]): Union[R2, VE[W, R2]] =
+      Union(Set(k, n) : F[VE[W, R2]])
   })
 
   def run[A: TypeTag, S: TypeTag
@@ -40,9 +40,9 @@ object State {
     , R1 <: HList : TypeTag](ex: Eff[R0, A], n: S)
   (implicit ev1: Remove[({ type z[a] = State[S, a] })#z, R0, R1]): Eff[R1, A] =
   {
-    type StateF[a] = State[S, a]
+    type F[a] = State[S, a]
     def loop(n: S)(ev: VE[A, R0]): Eff[R1, A] = {
-      def handle(r: StateF[VE[A, R0]]): Eff[R1, A] = r match {
+      def handle(r: F[VE[A, R0]]): Eff[R1, A] = r match {
         case Get(k   ) => loop(n)(k( n))
         case Set(k, n) => loop(n)(k(()))
       }
